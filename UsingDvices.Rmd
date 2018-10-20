@@ -1,0 +1,117 @@
+title: "Human Activity Recognition"
+author: "Haftom"
+date: "October 19, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+
+####Data
+The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+####Getting ready
+```{r echo = TRUE}
+rm(list=ls())
+require(tree)
+require(ggplot2)
+require(caTools)
+require(caret)
+require(dplyr)
+library(randomForest)
+library(e1071)
+library(gbm)
+set.seed(12345)
+```
+
+####Getting Data
+```{r echo = TRUE}
+# download the datasets
+train<- read.csv("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+sample<-sample.split(train$classe,SplitRatio = 0.70)
+train_data<-subset(train,sample==TRUE)
+test_data<-subset(train,sample==FALSE)
+```
+
+
+####Handling NA's
+
+So much NA's would be removed using The Near Zero variance (NZV).
+```{r }
+#Checking for NA
+table(is.na(train))
+# remove variables with Nearly Zero Variance
+remove1 <- nearZeroVar(train_data)
+Train_c <- train_data[, -remove1]
+Test_c  <- test_data[, -remove1]
+dim(Train_c)
+```
+
+
+Removing columns that contains so much NA's
+```{r }
+remove2<- sapply(Train_c, function(x) mean(is.na(x))) > 0.95
+Train_final <- Train_c[, remove2==FALSE]
+Test_final  <- Test_c[,remove2==FALSE]
+
+#Removing columns that are not required for modleing  
+Train_final <- Train_final[, -(1:5)]
+Test_final <- Test_final[, -(1:5)]
+
+dim(Train_final)
+dim(Test_final)
+```
+####Model One (Tree)
+```{r }
+#Training 
+tree_model<-tree(classe~.,data=Train_final)
+summary(tree_model)
+plot(tree_model)
+text(tree_model,pretty=0)
+
+
+#Testing 
+predict_Tree <- predict(tree_model, newdata=Test_final, type="class")
+conf_Tree <- confusionMatrix(predict_Tree, Test_final$classe)
+conf_Tree
+
+```
+
+####Model two (Random Forest)
+```{r }
+#Modeling
+forest_model<-randomForest(classe~.,Train_final,mtyr=54,importance=TRUE)
+forest_model
+plot(forest_model)
+#Testing 
+predict_forest <- predict(forest_model, newdata=Test_final, type="class")
+conf_forest <- confusionMatrix(predict_forest, Test_final$classe)
+conf_forest
+```
+###Selecting a Modle
+The accuracy of the tworegression modeling are
+:
+Decision Tree : 0.6978 
+
+Random Forest : 0.9968 
+
+Rondom Foreset is a good candidate
+
+###Testing Data
+```{r }
+#Reading test data
+real_test<-read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+#Predict test data
+predict_test<- predict(forest_model,newdata=real_test,type="class")
+head(predict_test)
+```
+
